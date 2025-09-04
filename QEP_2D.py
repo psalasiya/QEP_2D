@@ -62,9 +62,9 @@ def QEP(ky, a1, a2, msh, rh, mu, omega, num_ev):
     G = np.zeros((inter_y, inter_x))                                # shear modulus
 
     # Loop through the selected modes and evaluate them at each grid point
-    for k in range(len(evs.ev)):
+    for k in range(len(evs.ev_BZ)):
         temp_phi = evs.ef_BZ[k]
-        kappa[k] = evs.ev_BZ[0]
+        kappa[k] = evs.ev_BZ[k]
 
         for i in range(inter_y):
             for j in range(inter_x):
