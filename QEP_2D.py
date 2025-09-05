@@ -1,5 +1,5 @@
 #%%
-from solver_QEP_2D_non_orth import *
+from solver_QEP_2D import *
 from geo_mat_mesh_2D_QEP import *
 from evs_class import *
 import multiprocessing as mp

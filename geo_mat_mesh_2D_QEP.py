@@ -2,6 +2,7 @@ from ngsolve import *
 from netgen.occ import *
 import numpy as np
 from math import floor, ceil
+from netgen.geom2d import SplineGeometry
 
 def build_skew_cell(a1, a2, R=0.2, maxh=0.05):
     """
@@ -173,3 +174,141 @@ def edge_correspondance(left, right, top, bottom, a1, a2, tol_factor=1e-8):
                 R.append(r)
 
     return L, R, T, B
+
+def geometry_Circ_Inc2(Y, w, r1, ctr1, r2, ctr2, maxh=0.05):
+    '''
+    This function generates mesh and material for square unit-cell with two circular inclusions of radius r1 and r2 at ctr1 and ctr2 respectively.
+    '''
+
+    # Points  
+    pnts = [(0, 0), (0, 0), (Y, 0), (Y, w), (0, w)]
+    
+    # Define edges of the unit cell. Make sure that periodic edges are defined in the same direction
+    geo = SplineGeometry()
+    pnums = [geo.AppendPoint(*p) for p in pnts]
+    lab = geo.Append (["line", pnums[1], pnums[2]], leftdomain=1, rightdomain=0, bc="periodic")
+    lbc = geo.Append (["line", pnums[2], pnums[3]], leftdomain=1, rightdomain=0, bc="periodic")
+    geo.Append (["line", pnums[4], pnums[3]], leftdomain=0, rightdomain=1, copy=lab, bc="periodic")
+    geo.Append (["line", pnums[1], pnums[4]], leftdomain=0, rightdomain=1, copy=lbc, bc="periodic")
+    geo.AddCircle(ctr1, r1, leftdomain=2, rightdomain=1)
+    geo.AddCircle(ctr2, r2, leftdomain=3, rightdomain=1)
+    
+    geo.SetMaterial(1,"matrix")
+    geo.SetMaterial(2,"inclusion1")
+    geo.SetMaterial(3,"inclusion2")
+
+    # Mesh
+    mesh = Mesh(geo.GenerateMesh(maxh=maxh))
+
+    # Assign materials
+    mat_ls = [1, 1, 5, 0.1, 2, 1] # [rh_matrix, mu_matrix, rh_inclusion1, mu_inclusion1, rh_inclusion2, mu_inclusion2]
+
+    rhd = {}
+    mud = {}
+    rhd['matrix'] = mat_ls[0]
+    mud['matrix'] = mat_ls[1]
+    rhd['inclusion1'] = mat_ls[2]
+    mud['inclusion1'] = mat_ls[3]
+    rhd['inclusion2'] = mat_ls[4]
+    mud['inclusion2'] = mat_ls[5]
+    
+    rho = CoefficientFunction([rhd[mat] for mat in mesh.GetMaterials()])
+    mu  = CoefficientFunction([mud[mat] for mat in mesh.GetMaterials()])
+                    
+    return mesh, rho, mu
+
+def geometry_Chessboard(l1, l2, maxh=0.05):
+    '''
+    A chessboard unit-cell is constructed from a rectangle of dimensions l1 x l2.Each side of the rectangle is bisected, dividing the cell into four equal sub-rectangles (quadrants). Two diagonally opposite quadrants are then assigned the same material, while the other two are assigned a different material, creating a checkerboard-like pattern.
+    '''
+    
+    unit_cell = SplineGeometry()
+
+    pnts = [(0, 0), (l1, 0), (l1, l2), (0, l2), (l1/2, 0), (l1, l2/2), (l1/2, l2), (0, l2/2), (l1/2, l2/2)]
+    pnums = [unit_cell.AppendPoint(*p) for p in pnts]
+
+    lbot1 = unit_cell.Append (["line", pnums[0], pnums[4]], leftdomain=1, rightdomain=0, bc="periodic")
+    unit_cell.Append (["line", pnums[4], pnums[8]], leftdomain=1, rightdomain=2)
+    unit_cell.Append (["line", pnums[8], pnums[7]], leftdomain=1, rightdomain=2)
+    lleft2 = unit_cell.Append (["line", pnums[7], pnums[0]], leftdomain=1, rightdomain=0, bc="periodic")
+    lbot2 = unit_cell.Append (["line", pnums[4], pnums[1]], leftdomain=2, rightdomain=0, bc="periodic")
+    unit_cell.Append (["line", pnums[5], pnums[1]], leftdomain=0, rightdomain=2, copy=lleft2, bc="periodic")
+    unit_cell.Append (["line", pnums[5], pnums[8]], leftdomain=2, rightdomain=1)
+    lright2 = unit_cell.Append (["line", pnums[5], pnums[2]], leftdomain=1, rightdomain=0, bc="periodic")
+    unit_cell.Append (["line", pnums[6], pnums[2]], leftdomain=0, rightdomain=1, copy=lbot2, bc="periodic")
+    unit_cell.Append (["line", pnums[6], pnums[8]], leftdomain=1, rightdomain=2)
+    unit_cell.Append (["line", pnums[3], pnums[6]], leftdomain=0, rightdomain=2, copy=lbot1, bc="periodic")
+    unit_cell.Append (["line", pnums[7], pnums[3]], leftdomain=0, rightdomain=2, copy=lright2, bc="periodic")
+    
+    unit_cell.SetMaterial(1,"LBot")
+    unit_cell.SetMaterial(2,"RBot")
+
+    # Mesh
+    mesh = Mesh(unit_cell.GenerateMesh(maxh=maxh))
+
+    # Assign materials
+    mat_ls = [1, 1, 5, 0.1] # [rh_lbot, mu_lbot, rh_rbot, mu_rbot]
+
+    rhd = {}
+    mud = {}
+    rhd['LBot'] = mat_ls[0]
+    mud['LBot'] = mat_ls[1]
+    rhd['RBot'] = mat_ls[2]
+    mud['RBot'] = mat_ls[3]
+
+    rho = CoefficientFunction([rhd[mat] for mat in mesh.GetMaterials()])
+    mu  = CoefficientFunction([mud[mat] for mat in mesh.GetMaterials()])
+    
+    return mesh, rho, mu
+
+# Square unit-cell with elliptical inclusion
+def geometry_Elli_Inc(Y, w, r, ctr, th, maxh=0.05):
+    '''
+    Square unit-cell with oblique (th degrees) elliptical inclusion at ctr
+    '''
+    
+    cx, cy = ctr
+    rx, ry = r
+    c = np.cos(th)
+    s = np.sin(th)
+    
+    geo = SplineGeometry()
+    pnts = [(0, 0), (Y, 0), (Y, w), (0, w)]
+    pnums = [geo.AppendPoint(*p) for p in pnts]
+
+    lab1 = geo.Append(["line", pnums[0], pnums[1]], leftdomain=1, rightdomain=0, bc="periodic")
+    lab2 = geo.Append(["line", pnums[1], pnums[2]], leftdomain=1, rightdomain=0, bc="periodic")
+    geo.Append(["line", pnums[3], pnums[2]], leftdomain=0, rightdomain=1, copy=lab1, bc="periodic")
+    geo.Append(["line", pnums[0], pnums[3]], leftdomain=0, rightdomain=1, copy=lab2, bc="periodic")
+    
+    pnts = [(      s*ry+cx,      -c*ry+cy),
+            ( c*rx+s*ry+cx,  s*rx-c*ry+cy),
+            ( c*rx     +cx,  s*rx     +cy),
+            ( c*rx-s*ry+cx,  s*rx+c*ry+cy),
+            (     -s*ry+cx,       c*ry+cy),
+            (-c*rx-s*ry+cx, -s*rx+c*ry+cy),
+            (-c*rx     +cx, -s*rx     +cy),
+            (-c*rx+s*ry+cx, -s*rx-c*ry+cy)]
+    pnums = [geo.AppendPoint(*p) for p in pnts]
+    for p1,p2,p3 in [(0,1,2), (2,3,4), (4, 5, 6), (6, 7, 0)]:
+        geo.Append(["spline3", pnums[p1], pnums[p2], pnums[p3]], leftdomain=2, rightdomain=1)
+    
+    geo.SetMaterial(1,"matrix")
+    geo.SetMaterial(2,"inclusion")
+
+    # Mesh
+    mesh = Mesh(geo.GenerateMesh(maxh=maxh))
+
+    # Assign materials
+    mat_ls = [1, 1, 5, 0.1] # [rh_lbot, mu_lbot, rh_rbot, mu_rbot]
+    rhd = {}
+    mud = {}
+    rhd['matrix'] = mat_ls[0]
+    mud['matrix'] = mat_ls[1]
+    rhd['inclusion'] = mat_ls[2]
+    mud['inclusion'] = mat_ls[3]
+    
+    rho = CoefficientFunction([rhd[mat] for mat in mesh.GetMaterials()])
+    mu  = CoefficientFunction([mud[mat] for mat in mesh.GetMaterials()])
+                    
+    return mesh, rho, mu
