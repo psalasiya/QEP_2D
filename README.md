@@ -8,5 +8,4 @@ This package containes python codes to calculate the quadratic eigenspactrum of 
 6.  Check if everything is installed properly by running `netgen`, a ngsolve GUI should open.  
 
 Once ngsolve is installed succesfully, run the following code to calculate the eigenspectrum of a skew-cell cut out from orthogonal lattice of square with circular inclusion unit-cell.  
-1.  Run QEP_2D.py. The file is pre-populated with omega, ky, a1, a2 and mesh module. The eigenspectrum will be saved in Matlab_data directory.
-2.  The data file contains all the eigenvalues in the first-Brillouin zone.
+1.  Run QEP_2D.py. The file is pre-populated with omega, ky, a1, a2 and mesh module. The eigenspectrum will be saved in Data directory.
