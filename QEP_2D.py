@@ -3,7 +3,6 @@ from solver_QEP_2D import *
 from geo_mat_mesh_2D_QEP import *
 import multiprocessing as mp
 from functools import partial
-from scipy.io import savemat
 import numpy as np
 import pickle
 
